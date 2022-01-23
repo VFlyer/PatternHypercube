@@ -352,6 +352,7 @@ MonoBehaviour:
   RightButtonsContainer: {fileID: 4641705026997722}
   TopButtonsContainer: {fileID: 4902023179422690}
   Selectable: {fileID: 114511271479847796}
+  Audio: {fileID: 114628620812739524}
   HyperfacePrefab: {fileID: 114240507342831416, guid: f931bca86acf3704cb448fc2f7d6c300,
     type: 2}
   ButtonPrefab: {fileID: 114785143700007006, guid: d90d3f8b0e924cc43b683b3ff7ae2aeb,
@@ -404,6 +405,6 @@ MonoBehaviour:
   m_Script: {fileID: -119419473, guid: 45b809be76fd7a3468b6f517bced6f28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ModuleType: buttonMasher
-  ModuleDisplayName: Button Masher
-  RequiresTimerVisibility: 1
+  ModuleType: pattern_hypercube
+  ModuleDisplayName: Pattern Hypercube
+  RequiresTimerVisibility: 0

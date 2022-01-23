@@ -129,10 +129,6 @@ namespace _4D {
 			return Vector5Int.FromComponents(Enumerable.Range(0, 5).Select(i => Enumerable.Range(0, 5).Select(j => v5c[j] * m5._data[j][i]).Sum()).ToArray());
 		}
 
-		public bool IsIndent() {
-			return this * this == Matrix5x5Int.IDENTITY;
-		}
-
 		public int this[int row, int column] { get { return _data[row][column]; } }
 		private int[][] _data;
 		public Matrix5x5Int() { _data = Enumerable.Range(0, 5).Select(r => Enumerable.Range(0, 5).Select(c => r == c ? 1 : 0).ToArray()).ToArray(); }

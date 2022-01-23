@@ -11,8 +11,11 @@ public class PatternHypercubeModule : ModuleScript {
 	public Transform RightButtonsContainer;
 	public Transform TopButtonsContainer;
 	public KMSelectable Selectable;
+	public KMAudio Audio;
 	public HyperfaceComponent HyperfacePrefab;
 	public ButtonComponent ButtonPrefab;
+
+	private readonly string[] ButtonPressSounds = new[] { "ButtonPress1", "ButtonPress2" };
 
 	private bool _solved = false;
 	private bool _animation = false;
@@ -127,9 +130,7 @@ public class PatternHypercubeModule : ModuleScript {
 	}
 
 	private void SetExpectedSymbols() {
-		// FIXME:
-		// int cubeIndex = Random.Range(0, PatternHypercubeService.HYPERCUBES_COUNT);
-		int cubeIndex = 2;
+		int cubeIndex = Random.Range(0, PatternHypercubeService.HYPERCUBES_COUNT);
 		Log("Hypercube #{0}/10", cubeIndex + 1);
 		int[][] symbols = PatternHypercubeService.GetHypercube(RuleSeedId, cubeIndex);
 		// foreach (int[] face in symbols) Debug.Log(face.Join(", "));
@@ -187,6 +188,7 @@ public class PatternHypercubeModule : ModuleScript {
 		if (_selectedPrimaryRotationAxisIndex >= 0) _rotationButtons[0][_selectedPrimaryRotationAxisIndex].LabelColor = Color.gray;
 		_rotationButtons[0][axisIndex].LabelColor = Color.white;
 		_selectedPrimaryRotationAxisIndex = axisIndex;
+		Audio.PlaySoundAtTransform(ButtonPressSounds[Random.Range(0, ButtonPressSounds.Length)], transform);
 	}
 
 	private void SecondaryRotationAxisPressed(int axisIndex) {
@@ -201,14 +203,21 @@ public class PatternHypercubeModule : ModuleScript {
 		_animationSecondaryAxisIndex = axisIndex;
 		_4D.Matrix5x5Int fromRotation = _4dMode ? _hypercubeRotation : _hyperfaces[_realSelectedHyperfaceIndex].SelfRotation;
 		_hypercubeRotationAfterAnimation = fromRotation * _4D.Matrix5x5Int.Rotation(_selectedPrimaryRotationAxisIndex, axisIndex);
+		Audio.PlaySoundAtTransform(_4dMode ? "HypercubeRotation" : "HyperfaceRotation", transform);
 	}
 
 	private void NavButtonPressed(int diff) {
 		if (_animation || _solved) return;
+		int prevHF = _realSelectedHyperfaceIndex;
+		int prevPF = _realSelectedPatternIndex;
 		if (_4dMode) {
 			_hyperfaces[_realSelectedHyperfaceIndex].ResetSymbols();
 			do { _selectedHyperfaceIndex = (_selectedHyperfaceIndex + 8 + diff) % 8; } while (_hyperfaces[_realSelectedHyperfaceIndex].Placed);
-		} else do { _selectedPatternIndex = (_selectedPatternIndex + 8 + diff) % 8; } while (_hyperfaces[_realSelectedPatternIndex].Placed);
+			if (prevHF != _realSelectedHyperfaceIndex) Audio.PlaySoundAtTransform(ButtonPressSounds[Random.Range(0, ButtonPressSounds.Length)], transform);
+		} else {
+			do { _selectedPatternIndex = (_selectedPatternIndex + 8 + diff) % 8; } while (_hyperfaces[_realSelectedPatternIndex].Placed);
+			if (prevPF != _realSelectedPatternIndex) Audio.PlaySoundAtTransform(ButtonPressSounds[Random.Range(0, ButtonPressSounds.Length)], transform);
+		}
 		_hyperfaces[_realSelectedHyperfaceIndex].Symbols = _hyperfaces[_realSelectedPatternIndex].ExpectedSymbols;
 	}
 
@@ -217,7 +226,7 @@ public class PatternHypercubeModule : ModuleScript {
 		if (_realSelectedHyperfaceIndex != _realSelectedPatternIndex) {
 			Log("Trying to place pattern of hyperface #{0} on hyperface #{1}", _realSelectedPatternIndex + 1, _realSelectedHyperfaceIndex + 1);
 			Strike();
-		} else if (!_hyperfaces[_realSelectedHyperfaceIndex].SelfRotation.IsIndent()) {
+		} else if (_hyperfaces[_realSelectedHyperfaceIndex].SelfRotation != _4D.Matrix5x5Int.IDENTITY) {
 			Log("Trying to place valid pattern on hyperface #{0} but in invalid orientation", _realSelectedHyperfaceIndex + 1);
 			for (int row = 0; row < 5; row++) {
 				Debug.Log(Enumerable.Range(0, 5).Select(col => _hyperfaces[_realSelectedHyperfaceIndex].SelfRotation[row, col]).Join(", "));
@@ -229,11 +238,13 @@ public class PatternHypercubeModule : ModuleScript {
 			if (_hyperfaces.All(f => f.Placed)) {
 				Log("Hypercube filled. Module solved!");
 				Solve();
+				Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.CorrectChime, transform);
 				_solved = true;
 			} else {
 				do { _selectedHyperfaceIndex = (_selectedHyperfaceIndex + 1) % 8; } while (_hyperfaces[_realSelectedHyperfaceIndex].Placed);
 				do { _selectedPatternIndex = (_selectedPatternIndex + 1) % 8; } while (_hyperfaces[_realSelectedPatternIndex].Placed);
 				_hyperfaces[_realSelectedHyperfaceIndex].Symbols = _hyperfaces[_realSelectedPatternIndex].ExpectedSymbols;
+				Audio.PlaySoundAtTransform("HyperfacePlaced", transform);
 			}
 		}
 	}
@@ -246,6 +257,7 @@ public class PatternHypercubeModule : ModuleScript {
 		if (_selectedPrimaryRotationAxisIndex == 3) _selectedPrimaryRotationAxisIndex = -1;
 		_rotationButtons[0][3].LabelColor = Color.black;
 		_rotationButtons[1][3].LabelColor = Color.black;
+		Audio.PlaySoundAtTransform(ButtonPressSounds[Random.Range(0, ButtonPressSounds.Length)], transform);
 	}
 
 	private void Set4DMode() {
@@ -255,5 +267,6 @@ public class PatternHypercubeModule : ModuleScript {
 		_3dModeButton.LabelColor = Color.gray;
 		_rotationButtons[0][3].LabelColor = Color.gray;
 		_rotationButtons[1][3].LabelColor = Color.gray;
+		Audio.PlaySoundAtTransform(ButtonPressSounds[Random.Range(0, ButtonPressSounds.Length)], transform);
 	}
 }
