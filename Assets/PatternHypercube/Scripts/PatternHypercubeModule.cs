@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Linq;
 using UnityEngine;
 using KeepCoding;
@@ -6,6 +8,16 @@ using KeepCoding;
 public class PatternHypercubeModule : ModuleScript {
 	public const float ANIMATION_DURATION = 0.5f;
 	public const float MOUSE_MAX_ROTATION_ANGLE = Mathf.PI / 6;
+	public const float MOUSE_EMULATOR_SPEED = 0.25f;
+	public static readonly string[] AXLES_NAMES = new[] { "X", "Y", "Z", "W" };
+	public static readonly Dictionary<char, int> AXIS_TO_INDEX = new Dictionary<char, int> { { 'x', 0 }, { 'y', 1 }, { 'z', 2 }, { 'w', 3 } };
+
+	public readonly string TwitchHelpMessage = new[] {
+		"\"!{0} 3d\" or \"!{0} 4d\" - change mode",
+		"\"!{0} next\" or \"!{0} prev\" - change hyperface/pattern",
+		"\"!{0} XY\" - rotate hypercube/hyperface",
+		"\"!{0} submit\" - place pattern on selected hyperface",
+	}.Join(" | ");
 
 	public Transform HypercubeContainer;
 	public Transform RightButtonsContainer;
@@ -14,6 +26,8 @@ public class PatternHypercubeModule : ModuleScript {
 	public KMAudio Audio;
 	public HyperfaceComponent HyperfacePrefab;
 	public ButtonComponent ButtonPrefab;
+
+	public bool TwitchPlaysActive;
 
 	private readonly string[] ButtonPressSounds = new[] { "ButtonPress1", "ButtonPress2" };
 
@@ -37,6 +51,8 @@ public class PatternHypercubeModule : ModuleScript {
 	private ButtonComponent _nextButton;
 	private ButtonComponent _submitButton;
 	private ButtonComponent[][] _rotationButtons;
+	private Vector2[] _mouseEmulatorQueue = new[] { Vector2.zero };
+	private float _mouseEmulatorTime = 10f;
 
 	private int _realSelectedHyperfaceIndex { get { return _shuffledHyperfacesIndices[_selectedHyperfaceIndex]; } }
 	private int _realSelectedPatternIndex { get { return _shuffledPatternsIndices[_selectedPatternIndex]; } }
@@ -48,8 +64,8 @@ public class PatternHypercubeModule : ModuleScript {
 		CreateButtons();
 		_shuffledHyperfacesIndices = Enumerable.Range(0, 8).OrderBy(_ => Random.value).ToArray();
 		_shuffledPatternsIndices = Enumerable.Range(0, 8).OrderBy(_ => Random.value).ToArray();
-		_selectedHyperfaceIndex = Enumerable.Range(0, 6).Where(i => i != placedHyperfaceIndex).PickRandom();
-		_selectedPatternIndex = Enumerable.Range(0, 6).Where(i => i != placedHyperfaceIndex).PickRandom();
+		_selectedHyperfaceIndex = Enumerable.Range(0, 8).Where(i => i != _shuffledHyperfacesIndices[placedHyperfaceIndex]).PickRandom();
+		_selectedPatternIndex = Enumerable.Range(0, 8).Where(i => i != _shuffledPatternsIndices[placedHyperfaceIndex]).PickRandom();
 		_hyperfaces[_realSelectedHyperfaceIndex].Symbols = _hyperfaces[_realSelectedPatternIndex].ExpectedSymbols;
 		for (int i = 0; i < 8; i++) {
 			if (i == placedHyperfaceIndex) continue;
@@ -80,14 +96,98 @@ public class PatternHypercubeModule : ModuleScript {
 				else _hyperfaces[_realSelectedHyperfaceIndex].AnimationRotation = rotation;
 			}
 		}
-		_4D.Matrix5x5 selfTransform = RotateUsingMouse(selfRotation) * _4D.Matrix5x5.Translation(5f * _4D.Utils.Vector4Kata) * projection;
+		_4D.Matrix5x5 mouseRotation = TwitchPlaysActive ? MouseEmulator(selfRotation) : RotateUsingMouse(selfRotation);
+		_4D.Matrix5x5 selfTransform = mouseRotation * _4D.Matrix5x5.Translation(5f * _4D.Utils.Vector4Kata) * projection;
 		foreach (HyperfaceComponent face in _hyperfaces) face.Transform(selfTransform);
+	}
+
+	public IEnumerator ProcessTwitchCommand(string command) {
+		command = command.Trim().ToLower();
+		if (command == "3d") {
+			yield return null;
+			if (!_4dMode) yield return "sendtochat {0}, !{1} already in 3D mode";
+			else yield return new[] { _3dModeButton.Selectable };
+			yield break;
+		}
+		if (command == "4d") {
+			yield return null;
+			if (_4dMode) yield return "sendtochat {0}, !{1} already in 4D mode";
+			else yield return new[] { _4dModeButton.Selectable };
+			yield break;
+		}
+		if (command == "next" || command == "r" || command == "right") {
+			yield return null;
+			yield return new[] { _nextButton.Selectable };
+			yield break;
+		}
+		if (command == "prev" || command == "l" || command == "left") {
+			yield return null;
+			yield return new[] { _prevButton.Selectable };
+			yield break;
+		}
+		if (command == "submit") {
+			yield return null;
+			yield return new[] { _submitButton.Selectable };
+			yield break;
+		}
+		if (Regex.IsMatch(command, @"^[xyzw]{2}$") && command[0] != command[1]) {
+			yield return null;
+			if (!_4dMode && (command[0] == 'w' || command[1] == 'w')) yield return "sendtochat {0}, !{1} unable to use rotation over \"W\" in 3D mode";
+			else yield return new[] { _rotationButtons[0][AXIS_TO_INDEX[command[0]]].Selectable, _rotationButtons[1][AXIS_TO_INDEX[command[1]]].Selectable };
+			yield break;
+		}
+	}
+
+	public IEnumerator TwitchHandleForcedSolve() {
+		while (!IsSolved) {
+			yield return new WaitUntil(() => !_animation);
+			Set3DMode();
+			while (_realSelectedHyperfaceIndex != _realSelectedPatternIndex) {
+				NavButtonPressed(1);
+				yield return new WaitForSeconds(.1f);
+			}
+			while (_hyperfaces[_realSelectedHyperfaceIndex].SelfRotation != _4D.Matrix5x5Int.IDENTITY) {
+				int[] invalidAxles = Enumerable.Range(0, 3).Where(i => _hyperfaces[_realSelectedHyperfaceIndex].SelfRotation[i, i] != 1).ToArray();
+				if (_selectedPrimaryRotationAxisIndex != invalidAxles[0]) {
+					PrimaryRotationAxisPressed(invalidAxles[0]);
+					yield return new WaitForSeconds(.1f);
+				}
+				SecondaryRotationAxisPressed(invalidAxles[1]);
+				yield return new WaitUntil(() => !_animation);
+			}
+			SubmitButtonPressed();
+			yield return new WaitForSeconds(.1f);
+		}
 	}
 
 	private _4D.Matrix5x5 RotateUsingMouse(_4D.Matrix5x5 initial) {
 		float x = Mathf.Clamp01(Input.mousePosition.x / Screen.width) * 2f - 1f;
 		float y = Mathf.Clamp01(Input.mousePosition.y / Screen.height) * 2f - 1f;
-		return initial * _4D.Matrix5x5.Rotation(1, 0, x * MOUSE_MAX_ROTATION_ANGLE) * _4D.Matrix5x5.Rotation(1, 2, y * MOUSE_MAX_ROTATION_ANGLE);
+		return RotationFromMousePos(initial, new Vector2(x, y));
+	}
+
+	private _4D.Matrix5x5 MouseEmulator(_4D.Matrix5x5 initial) {
+		_mouseEmulatorTime += Time.deltaTime * MOUSE_EMULATOR_SPEED;
+		if (_mouseEmulatorTime >= 9f) {
+			_mouseEmulatorTime -= 9f;
+			if (_mouseEmulatorTime >= 9f) _mouseEmulatorTime = 0f;
+			float diff = 1f / 3f;
+			_mouseEmulatorQueue = new[] { _mouseEmulatorQueue.Last() }.Concat(Enumerable.Range(0, 9).Select(i => {
+				float x = Random.Range(-diff, diff) + (i % 3 - 1) * 2f * diff;
+				float y = Random.Range(-diff, diff) + (i / 3 - 1) * 2f * diff;
+				return new Vector2(x, y);
+			}).OrderBy(_ => Random.Range(0f, 1f))).ToArray();
+		}
+		int fromInd = Mathf.FloorToInt(_mouseEmulatorTime);
+		Vector2 from = _mouseEmulatorQueue[fromInd];
+		Vector2 to = _mouseEmulatorQueue[fromInd + 1];
+		float lerp = 0.5f - 0.5f * Mathf.Cos(Mathf.PI * (_mouseEmulatorTime % 1));
+		Vector2 mousePos = Vector2.Lerp(from, to, lerp);
+		return RotationFromMousePos(initial, mousePos);
+	}
+
+	private _4D.Matrix5x5 RotationFromMousePos(_4D.Matrix5x5 initial, Vector2 mousePos) {
+		return initial * _4D.Matrix5x5.Rotation(1, 0, mousePos.x * MOUSE_MAX_ROTATION_ANGLE) * _4D.Matrix5x5.Rotation(1, 2, mousePos.y * MOUSE_MAX_ROTATION_ANGLE);
 	}
 
 	private int PlaceRandomHyperface() {
@@ -139,14 +239,13 @@ public class PatternHypercubeModule : ModuleScript {
 
 	private void CreateButtons() {
 		List<KMSelectable> newSelectables = new List<KMSelectable>();
-		string[] axlesNames = new[] { "X", "Y", "Z", "W" };
 		float buttonsOffset = 0.02f;
 		_rotationButtons = Enumerable.Range(0, 2).Select(_ => Enumerable.Repeat<ButtonComponent>(null, 4).ToArray()).ToArray();
 		for (int axisIndex = 0; axisIndex < 4; axisIndex++) {
 			int axisIndexClosure = axisIndex;
 			for (int i = 0; i < 2; i++) {
 				Vector3 pos = i * Vector3.right * buttonsOffset + axisIndex * Vector3.back * buttonsOffset;
-				ButtonComponent button = CreateOneButton(RightButtonsContainer, pos, axlesNames[axisIndex], Color.gray, newSelectables);
+				ButtonComponent button = CreateOneButton(RightButtonsContainer, pos, AXLES_NAMES[axisIndex], Color.gray, newSelectables);
 				_rotationButtons[i][axisIndex] = button;
 				if (i == 0) button.Selectable.OnInteract += () => { PrimaryRotationAxisPressed(axisIndexClosure); return false; };
 				else button.Selectable.OnInteract += () => { SecondaryRotationAxisPressed(axisIndexClosure); return false; };

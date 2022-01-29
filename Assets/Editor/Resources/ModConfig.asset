@@ -16,6 +16,6 @@ MonoBehaviour:
   author: NickLatkovich
   description: Deduce the location and orientation of symbols on the hypersurfaces
     of a HYPERCUBE!
-  version: 0.1.0
+  version: 1.0.0
   outputFolder: build
   previewImage: {fileID: 2800000, guid: c61fd2d3f85dd514bb1ba0d6194b5b95, type: 3}

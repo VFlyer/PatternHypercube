@@ -357,6 +357,7 @@ MonoBehaviour:
     type: 2}
   ButtonPrefab: {fileID: 114785143700007006, guid: d90d3f8b0e924cc43b683b3ff7ae2aeb,
     type: 2}
+  TwitchPlaysActive: 0
 --- !u!114 &114628620812739524
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -380,7 +381,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShaderNames:
-  - KT/Mobile/Diffuse
+  - KT/Mobile/DiffuseTint
 --- !u!114 &114746274157301926
 MonoBehaviour:
   m_ObjectHideFlags: 1
