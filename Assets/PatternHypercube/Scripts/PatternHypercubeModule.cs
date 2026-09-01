@@ -132,6 +132,7 @@ public class PatternHypercubeModule : ModuleScript {
 								yield break;
 							}
 							btnsSelectable.Add(_3dModeButton);
+							simulated4DMode = false;
                         }
 						break;
 					case "4d":
@@ -142,6 +143,7 @@ public class PatternHypercubeModule : ModuleScript {
 								yield break;
 							}
 							btnsSelectable.Add(_4dModeButton);
+							simulated4DMode = true;
 						}
 						break;
 					case "next":
