@@ -106,12 +106,12 @@ public class PatternHypercubeModule : ModuleScript {
 		command = command.Trim().ToLower();
 		string[] cmdSplit = command.Trim().ToLower().Split();
 		bool simulated4DMode = _4dMode;
-		var btnsSelectable = new List<ButtonComponent>();
-		for (var x = 0; x < cmdSplit.Length; x++) {
+		List<ButtonComponent> btnsSelectable = new List<ButtonComponent>();
+		for (int x = 0; x < cmdSplit.Length; x++) {
 			string curCmdPart = cmdSplit[x];
 			if (Regex.IsMatch(curCmdPart, @"^[xyzw]{2}$") && curCmdPart[0] != curCmdPart[1]) {
 				if (!simulated4DMode && curCmdPart.Contains('w')) {
-					yield return string.Format("sendtochaterror {0}, !{1} unable to use rotation over \"W\" in 3D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
+					yield return string.Format("sendtochaterror {0}, !{1} unable to use rotation over \"W\" in 3D mode after processing {2} command(s)", "{0}", "{1}", x);
 					yield break;
 				}
 				btnsSelectable.Add(_rotationButtons[0][AXIS_TO_INDEX[curCmdPart[0]]]);
@@ -120,7 +120,7 @@ public class PatternHypercubeModule : ModuleScript {
 				switch (curCmdPart) {
 					case "3d":
 						if (!simulated4DMode) {
-							yield return string.Format("sendtochaterror {0}, !{1} would already be in 3D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
+							yield return string.Format("sendtochaterror {0}, !{1} would already be in 3D mode after processing {2} command(s)", "{0}", "{1}", x);
 							yield break;
 						}
 						btnsSelectable.Add(_3dModeButton);
@@ -128,7 +128,7 @@ public class PatternHypercubeModule : ModuleScript {
 						break;
 					case "4d":
 						if (simulated4DMode) {
-							yield return string.Format("sendtochaterror {0}, !{1} would already be in 4D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
+							yield return string.Format("sendtochaterror {0}, !{1} would already be in 4D mode after processing {2} command(s)", "{0}", "{1}", x);
 							yield break;
 						}
 						btnsSelectable.Add(_4dModeButton);
