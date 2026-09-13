@@ -104,80 +104,60 @@ public class PatternHypercubeModule : ModuleScript {
 
 	public IEnumerator ProcessTwitchCommand(string command) {
 		command = command.Trim().ToLower();
-		var cmdSplit = command.Trim().ToLower().Split();
-		var simulated4DMode = _4dMode;
+		string[] cmdSplit = command.Trim().ToLower().Split();
+		bool simulated4DMode = _4dMode;
 		var btnsSelectable = new List<ButtonComponent>();
-        for (var x = 0; x < cmdSplit.Length; x++)
-        {
-			var curCmdPart = cmdSplit[x];
-			if (Regex.IsMatch(curCmdPart, @"^[xyzw]{2}$") && curCmdPart[0] != curCmdPart[1])
-            {
-				if (!simulated4DMode && curCmdPart.Contains('w'))
-				{
+		for (var x = 0; x < cmdSplit.Length; x++) {
+			string curCmdPart = cmdSplit[x];
+			if (Regex.IsMatch(curCmdPart, @"^[xyzw]{2}$") && curCmdPart[0] != curCmdPart[1]) {
+				if (!simulated4DMode && curCmdPart.Contains('w')) {
 					yield return string.Format("sendtochaterror {0}, !{1} unable to use rotation over \"W\" in 3D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
 					yield break;
 				}
 				btnsSelectable.Add(_rotationButtons[0][AXIS_TO_INDEX[curCmdPart[0]]]);
 				btnsSelectable.Add(_rotationButtons[1][AXIS_TO_INDEX[curCmdPart[1]]]);
-			}
-			else
-            {
-				switch (curCmdPart)
-                {
+			} else {
+				switch (curCmdPart) {
 					case "3d":
-                        {
-							if (!simulated4DMode)
-                            {
-								yield return string.Format("sendtochaterror {0}, !{1} would already be in 3D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
-								yield break;
-							}
-							btnsSelectable.Add(_3dModeButton);
-							simulated4DMode = false;
-                        }
+						if (!simulated4DMode) {
+							yield return string.Format("sendtochaterror {0}, !{1} would already be in 3D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
+							yield break;
+						}
+						btnsSelectable.Add(_3dModeButton);
+						simulated4DMode = false;
 						break;
 					case "4d":
-						{
-							if (simulated4DMode)
-							{
-								yield return string.Format("sendtochaterror {0}, !{1} would already be in 4D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
-								yield break;
-							}
-							btnsSelectable.Add(_4dModeButton);
-							simulated4DMode = true;
+						if (simulated4DMode) {
+							yield return string.Format("sendtochaterror {0}, !{1} would already be in 4D mode after processing {2} command(s)", "{0}", "{1}", x + 1);
+							yield break;
 						}
+						btnsSelectable.Add(_4dModeButton);
+						simulated4DMode = true;
 						break;
 					case "next":
 					case "r":
 					case "right":
-                        {
-							btnsSelectable.Add(_nextButton);
-                        }
+						btnsSelectable.Add(_nextButton);
 						break;
 					case "prev":
 					case "l":
 					case "left":
-						{
-							btnsSelectable.Add(_prevButton);
-						}
+						btnsSelectable.Add(_prevButton);
 						break;
 					case "submit":
-						{
-							btnsSelectable.Add(_submitButton);
-						}
+						btnsSelectable.Add(_submitButton);
 						break;
 					default:
 						yield break;
-                }
-            }
+				}
+			}
 		}
-        for (int x = 0; x < btnsSelectable.Count; x++)
-        {
-            ButtonComponent btn = btnsSelectable[x];
-            yield return null;
+		for (int x = 0; x < btnsSelectable.Count; x++) {
+			ButtonComponent btn = btnsSelectable[x];
+			yield return null;
 			btn.Selectable.OnInteract();
-			while (_animation)
-				yield return string.Format("trycancel Command process was canceled after {0} press(es).", x + 1);
-        }
+			while (_animation) yield return string.Format("trycancel Command process was canceled after {0} press(es).", x + 1);
+		}
 	}
 
 	public IEnumerator TwitchHandleForcedSolve() {
